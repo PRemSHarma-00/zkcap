@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  github_id         BigInt    @unique
+  github_username   String    @db.VarChar(255)
+  github_avatar_url String?   @db.VarChar(500)
+  access_token_hash String    @db.VarChar(255)
+  created_at        DateTime  @default(now()) @db.Timestamptz
+  projects          Project[]
+
+  @@index([github_id])
+  @@map("users")
+}
+
+model Project {
+  id          String    @id @default(uuid()) @db.Uuid
+  user_id     String    @db.Uuid
+  name        String    @db.VarChar(255)
+  github_repo String    @unique @db.VarChar(500)
+  created_at  DateTime  @default(now()) @db.Timestamptz
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  commits     Commit[]
+
+  @@index([user_id])
+  @@map("projects")
+}
+
+model Commit {
+  id            String       @id @default(uuid()) @db.Uuid
+  project_id    String       @db.Uuid
+  commit_hash   String       @db.VarChar(40)
+  message       String       @db.VarChar(1000)
+  author        String       @db.VarChar(255)
+  timestamp     DateTime     @db.Timestamptz
+  tree_hash     String?      @db.VarChar(40)
+  parent_hashes String?      @db.Text
+  additions     Int?
+  deletions     Int?
+  files_changed Int?
+  created_at    DateTime     @default(now()) @db.Timestamptz
+  zkTLS_proof   Json?
+  project       Project      @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  attestation   Attestation?
+
+  @@index([commit_hash])
+  @@map("commits")
+}
+
+enum AttestationStatus {
+  pending
+  generated
+  onchain
+  failed
+
+  @@map("attestation_status")
+}
+
+model Attestation {
+  id               String            @id @default(uuid()) @db.Uuid
+  commit_id        String            @unique @db.Uuid
+  status           AttestationStatus @default(pending)
+  attestation_hash String?           @db.VarChar(64)
+  onchain_tx       String?           @db.VarChar(255)
+  created_at       DateTime          @default(now()) @db.Timestamptz
+  commit           Commit            @relation(fields: [commit_id], references: [id], onDelete: Cascade)
+
+  @@map("attestations")
+}
